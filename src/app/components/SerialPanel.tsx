@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Settings, Send, Trash2, Search, RefreshCw, Activity, Thermometer, Droplets, Gauge, PlayCircle, AlertCircle, StopCircle, Play } from 'lucide-react';
+import { Settings, Send, Trash2, Search, RefreshCw, Activity, Thermometer, Droplets, Gauge, PlayCircle, AlertCircle, StopCircle, Play, FileText, Save } from 'lucide-react';
 
 // Web Serial API Type Definitions
 interface SerialPort {
@@ -35,6 +35,7 @@ interface NavigatorSerial {
 
 // Machine Status Interface
 export interface MachineStatus {
+  timestamp?: string;
   error_code: number;
   flow_rate: number;
   brew_boiler_pressure: number;
@@ -73,7 +74,6 @@ interface SerialPanelProps {
 export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: SerialPanelProps) {
   const [ports, setPorts] = useState<SerialPort[]>([]);
   const [selectedPort, setSelectedPort] = useState<SerialPort | null>(null);
-  const [portInfo, setPortInfo] = useState<string>('');
 
   const [sendData, setSendData] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -84,6 +84,14 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   const [machineStatus, setMachineStatus] = useState<MachineStatus | null>(null);
   const [pollIntervalId, setPollIntervalId] = useState<ReturnType<typeof setInterval> | null>(null);
 
+  // CSV Logging State
+  const [isLogging, setIsLogging] = useState(false);
+  const [csvData, setCsvData] = useState<MachineStatus[]>([]);
+  const isLoggingRef = useRef(false);
+
+  // Port Name Mapping (store custom names for ports)
+  const [portNames, setPortNames] = useState<Map<SerialPort, string>>(new Map());
+
   // Refs for stream handling
   const portRef = useRef<SerialPort | null>(null);
   const readerRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
@@ -93,73 +101,33 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   const logBufferRef = useRef<string>('');
   const closedPromiseRef = useRef<Promise<void> | null>(null); // Track read loop completion
 
-  // Initialize available ports
+  // Check Web Serial API support
   useEffect(() => {
     const nav = navigator as unknown as NavigatorSerial;
     if (!nav.serial) {
       console.error('[System] Web Serial API not supported in this browser.');
-      return;
     }
+  }, []);
 
-    const updatePorts = async () => {
-      try {
-        const availablePorts = await nav.serial.getPorts();
-        setPorts(availablePorts);
-        if (availablePorts.length > 0 && !selectedPort) {
-          setSelectedPort(availablePorts[0]);
-        }
-      } catch (err) {
-        console.error('Error listing ports:', err);
-      }
-    };
 
-    updatePorts();
-
-    const handleConnectEvent = () => updatePorts();
-    const handleDisconnectEvent = () => updatePorts();
-
-    nav.serial.addEventListener('connect', handleConnectEvent);
-    nav.serial.addEventListener('disconnect', handleDisconnectEvent);
-
-    return () => {
-      nav.serial.removeEventListener('connect', handleConnectEvent);
-      nav.serial.removeEventListener('disconnect', handleDisconnectEvent);
-    };
-  }, [selectedPort]);
-
-  // Update info text when port changes
-  useEffect(() => {
-    if (selectedPort) {
-      const info = selectedPort.getInfo();
-      const vid = info.usbVendorId ? `VID:${info.usbVendorId.toString(16).padStart(4, '0')}` : '';
-      const pid = info.usbProductId ? `PID:${info.usbProductId.toString(16).padStart(4, '0')}` : '';
-      const infoStr = `${vid} ${pid}`.trim() || 'Generic Serial Device';
-
-      setPortInfo(infoStr);
-    } else {
-      setPortInfo('');
-    }
-  }, [selectedPort]);
 
   // Sync connection status to parent
   useEffect(() => {
     if (isConnected && selectedPort && onPortSelected) {
-      const idx = ports.indexOf(selectedPort);
-      const portName = `Port ${idx !== -1 ? idx + 1 : '?'}`;
-      const info = selectedPort.getInfo();
-      const fullStr = `${portName} (${info.usbVendorId ? 'VID:' + info.usbVendorId.toString(16) : 'Generic'})`;
-      onPortSelected(fullStr);
+      const customName = portNames.get(selectedPort);
+      const portName = customName || `COM${ports.indexOf(selectedPort) + 1}`;
+      onPortSelected(portName);
     } else if (onPortSelected) {
       onPortSelected('');
     }
-  }, [isConnected, selectedPort, ports, onPortSelected]);
+  }, [isConnected, selectedPort, ports, portNames, onPortSelected]);
 
   // Polling Effect
   useEffect(() => {
     if (isConnected && autoPoll) {
       const id = setInterval(() => {
         sendString("102@READ@ALL#43433");
-      }, 200);
+      }, 500);
       setPollIntervalId(id);
       return () => clearInterval(id);
     } else {
@@ -181,14 +149,55 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
     }
   };
 
+  // Generate friendly device name based on VID/PID
+  const getDeviceName = (port: SerialPort): string => {
+    const info = port.getInfo();
+    const vid = info.usbVendorId;
+    const pid = info.usbProductId;
+
+    if (!vid || !pid) {
+      return '通用串口设备';
+    }
+
+    const vidHex = vid.toString(16).toUpperCase().padStart(4, '0');
+    const pidHex = pid.toString(16).toUpperCase().padStart(4, '0');
+
+    // Common USB-Serial chip manufacturers
+    const vendorNames: { [key: number]: string } = {
+      0x0403: 'FTDI设备',      // FTDI
+      0x10C4: 'Silicon Labs',  // Silicon Labs CP210x
+      0x1A86: 'CH340设备',     // WCH CH340
+      0x067B: 'Prolific设备',  // Prolific PL2303
+      0x2341: 'Arduino设备',   // Arduino
+      0x1A40: 'TERMINUS',      // TERMINUS
+      0x0483: 'STM设备',       // STMicroelectronics
+    };
+
+    const vendorName = vendorNames[vid] || 'USB串口';
+    return `${vendorName} (VID:${vidHex} PID:${pidHex})`;
+  };
+
   const handleSearchPort = async () => {
     const nav = navigator as unknown as NavigatorSerial;
     if (!nav.serial) return;
 
     try {
       const port = await nav.serial.requestPort();
-      const currentPorts = await nav.serial.getPorts();
-      setPorts(currentPorts);
+
+      // Check if port already exists in the list
+      const portExists = ports.some(p => p === port);
+      if (!portExists) {
+        setPorts(prevPorts => [...prevPorts, port]);
+      }
+
+      // Automatically generate device name from VID/PID
+      const deviceName = getDeviceName(port);
+      setPortNames(prev => {
+        const newMap = new Map(prev);
+        newMap.set(port, deviceName);
+        return newMap;
+      });
+
       setSelectedPort(port);
     } catch (err) {
       console.log('Port selection cancelled or failed', err);
@@ -210,39 +219,54 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
 
     if (parts.length < 27) return;
 
+    // If firmware version comes in as a dotted segment split across fields (e.g. 0.0.2),
+    // rejoin the tail so we can parse the fixed fields correctly.
+    let normalizedParts = parts;
+    if (parts.length > 27) {
+      const head = parts.slice(0, 26);
+      const version = parts.slice(26).join('.');
+      normalizedParts = [...head, version];
+    }
+
     const status: MachineStatus = {
-      error_code: parseInt(parts[0]) || 0,
-      flow_rate: parseFloat(parts[1]) || 0,
-      brew_boiler_pressure: parseFloat(parts[2]) || 0,
-      brew_boiler_temperature: parseFloat(parts[3]) || 0,
-      brew_head_temperature: parseFloat(parts[4]) || 0,
-      brew_pressure_level: parseInt(parts[5]) || 0,
-      brew_boiler_water_level: parseInt(parts[6]) || 0,
-      steam_run_status: parseInt(parts[7]) || 0,
-      steam_boiler_pressure: parseFloat(parts[8]) || 0,
-      steam_boiler_temperature: parseFloat(parts[9]) || 0,
-      steam_milk_temperature: parseFloat(parts[10]) || 0,
-      steam_pressure_level: parseInt(parts[11]) || 0,
-      hot_water_run_status: parseInt(parts[12]) || 0,
-      hot_water_percent_level: parseInt(parts[13]) || 0,
-      hot_water_temperature: parseFloat(parts[14]) || 0,
-      tray_postion_state: parseInt(parts[15]) || 0,
-      brew_handle_postion_state: parseInt(parts[16]) || 0,
-      hot_switch_postion_state: parseInt(parts[17]) || 0,
-      tray_high_level_state: parseInt(parts[18]) || 0,
-      tray_low_level_state_1: parseInt(parts[19]) || 0,
-      tray_low_level_state_2: parseInt(parts[20]) || 0,
-      current_stage: parseInt(parts[21]) || 0,
-      total_stage: parseInt(parts[22]) || 0,
-      drink_making_flg: parseInt(parts[23]) || 0,
-      liquid_adc: parseInt(parts[24]) || 0,
-      liquid_weight: parseFloat(parts[25]) || 0,
-      ucFwVersion: parts[26] || '',
+      timestamp: new Date().toISOString(),
+      error_code: parseInt(normalizedParts[0]) || 0,
+      flow_rate: parseFloat(normalizedParts[1]) || 0,
+      brew_boiler_pressure: parseFloat(normalizedParts[2]) || 0,
+      brew_boiler_temperature: parseFloat(normalizedParts[3]) || 0,
+      brew_head_temperature: parseFloat(normalizedParts[4]) || 0,
+      brew_pressure_level: parseInt(normalizedParts[5]) || 0,
+      brew_boiler_water_level: parseInt(normalizedParts[6]) || 0,
+      steam_run_status: parseInt(normalizedParts[7]) || 0,
+      steam_boiler_pressure: parseFloat(normalizedParts[8]) || 0,
+      steam_boiler_temperature: parseFloat(normalizedParts[9]) || 0,
+      steam_milk_temperature: parseFloat(normalizedParts[10]) || 0,
+      steam_pressure_level: parseInt(normalizedParts[11]) || 0,
+      hot_water_run_status: parseInt(normalizedParts[12]) || 0,
+      hot_water_percent_level: parseInt(normalizedParts[13]) || 0,
+      hot_water_temperature: parseFloat(normalizedParts[14]) || 0,
+      tray_postion_state: parseInt(normalizedParts[15]) || 0,
+      brew_handle_postion_state: parseInt(normalizedParts[16]) || 0,
+      hot_switch_postion_state: parseInt(normalizedParts[17]) || 0,
+      tray_high_level_state: parseInt(normalizedParts[18]) || 0,
+      tray_low_level_state_1: parseInt(normalizedParts[19]) || 0,
+      tray_low_level_state_2: parseInt(normalizedParts[20]) || 0,
+      current_stage: parseInt(normalizedParts[21]) || 0,
+      total_stage: parseInt(normalizedParts[22]) || 0,
+      drink_making_flg: parseInt(normalizedParts[23]) || 0,
+      liquid_adc: parseInt(normalizedParts[24]) || 0,
+      liquid_weight: parseFloat(normalizedParts[25]) || 0,
+      ucFwVersion: normalizedParts[26] || '',
     };
 
     setMachineStatus(status);
     if (onStatusUpdate) {
       onStatusUpdate(status);
+    }
+
+    // Collect data for CSV logging
+    if (isLoggingRef.current) {
+      setCsvData(prev => [...prev, status]);
     }
 
     return startIndex + startMarker.length + endIndex + 1;
@@ -315,7 +339,6 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       }
     } catch (error) {
       console.error('Read error:', error);
-      setReceiveData(prev => prev + `\n[Error] Read error: ${error}\n`);
     } finally {
       reader.releaseLock();
       await readableStreamClosed.catch(() => { });
@@ -324,6 +347,13 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
 
   const handleConnect = async () => {
     if (isConnected) {
+      if (isLoggingRef.current) {
+        isLoggingRef.current = false;
+        setIsLogging(false);
+        handleSaveCSV();
+        console.log('[CSV] Logging stopped (disconnect)');
+      }
+
       // Graceful Disconnect
       keepReadingRef.current = false;
 
@@ -407,11 +437,113 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   };
 
   const handleExtraction = async (start: boolean) => {
-    const cmd = start ? "102@EXTRACT@START#" : "102@EXTRACT@STOP#";
+    const cmd = start ? "102@EXTRACT@START#" : "123@OUT@NULL#123";
     console.log(`[CMD] ${start ? 'Start' : 'Stop'} Extraction`);
     await sendString(cmd);
   };
 
+  // Convert MachineStatus array to CSV string
+  const convertToCSV = (data: MachineStatus[]): string => {
+    if (data.length === 0) return '';
+
+    // Define CSV headers
+    const headers = [
+      'timestamp',
+      'error_code',
+      'flow_rate',
+      'brew_boiler_pressure',
+      'brew_boiler_temperature',
+      'brew_head_temperature',
+      'brew_pressure_level',
+      'brew_boiler_water_level',
+      'steam_run_status',
+      'steam_boiler_pressure',
+      'steam_boiler_temperature',
+      'steam_milk_temperature',
+      'steam_pressure_level',
+      'hot_water_run_status',
+      'hot_water_percent_level',
+      'hot_water_temperature',
+      'tray_postion_state',
+      'brew_handle_postion_state',
+      'hot_switch_postion_state',
+      'tray_high_level_state',
+      'tray_low_level_state_1',
+      'tray_low_level_state_2',
+      'current_stage',
+      'total_stage',
+      'drink_making_flg',
+      'liquid_adc',
+      'liquid_weight',
+      'ucFwVersion'
+    ];
+
+    // Create CSV rows
+    const rows = data.map(record => {
+      return headers.map(header => {
+        const value = record[header as keyof MachineStatus];
+        // Escape values containing commas or quotes
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value;
+      }).join(',');
+    });
+
+    // Combine headers and rows
+    return [headers.join(','), ...rows].join('\n');
+  };
+
+  // Save CSV file
+  const handleSaveCSV = () => {
+    if (csvData.length === 0) {
+      console.log('[CSV] No data to save');
+      return;
+    }
+
+    try {
+      // Generate timestamp for filename: YYYYMMDD_HHmmss
+      const now = new Date();
+      const timestamp = now.toISOString()
+        .replace(/[-:]/g, '')
+        .replace('T', '_')
+        .split('.')[0];
+
+      const filename = `MachineStatus_${timestamp}.csv`;
+      const csvContent = convertToCSV(csvData);
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      console.log(`[CSV] Saved ${csvData.length} records to ${filename}`);
+    } catch (error) {
+      console.error('[CSV] Save error:', error);
+    }
+  };
+
+  // Handle logging control
+  const handleLogging = (start: boolean) => {
+    if (start) {
+      isLoggingRef.current = true;
+      setIsLogging(true);
+      setCsvData([]);
+      console.log('[CSV] Logging started');
+    } else {
+      isLoggingRef.current = false;
+      setIsLogging(false);
+      handleSaveCSV();
+      console.log('[CSV] Logging stopped');
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-gray-50 border-l border-gray-200 overflow-y-auto">
@@ -438,13 +570,13 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
               >
                 {ports.length === 0 ? (
-                  <option value="-1">No ports authorized</option>
+                  <option value="-1">未检测到端口</option>
                 ) : (
                   ports.map((port, index) => {
-                    const info = port.getInfo();
+                    const customName = portNames.get(port) || `COM${index + 1}`;
                     return (
                       <option key={index} value={index}>
-                        Port {index + 1} {info.usbVendorId ? `(VID:${info.usbVendorId.toString(16)})` : ''}
+                        {customName}
                       </option>
                     );
                   })
@@ -459,7 +591,12 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
                 <Search className="w-4 h-4" />
               </button>
             </div>
-            {portInfo && <div className="text-xs text-gray-500 mt-1 pl-1">Device: {portInfo}</div>}
+            {isConnected && selectedPort && (
+              <div className="text-xs text-green-700 mt-1 pl-1 font-medium flex items-center gap-1">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                已连接: {portNames.get(selectedPort) || `COM${ports.indexOf(selectedPort) + 1}`}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 bg-blue-50 p-2 rounded border border-blue-100">
@@ -472,7 +609,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
               className="rounded text-blue-600 focus:ring-blue-500"
             />
             <label htmlFor="autoPoll" className="text-sm font-medium text-gray-700 cursor-pointer select-none">
-              Auto Poll (200ms)
+              设备状态轮询 (500ms)
             </label>
             {autoPoll && isConnected && <span className="flex h-2 w-2 relative ml-auto">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
@@ -516,6 +653,43 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
               停止
             </button>
           </div>
+        </div>
+      )}
+
+      {/* 日志控制区 - 仅连接时显示 */}
+      {isConnected && (
+        <div className="p-4 bg-green-50 border-b border-green-100 flex-shrink-0">
+          <h3 className="font-semibold mb-3 flex items-center gap-2 text-green-800">
+            <FileText className="w-4 h-4" />
+            数据日志
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => handleLogging(true)}
+              disabled={isLogging}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors shadow-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <FileText className="w-4 h-4" />
+              日志记录
+            </button>
+            <button
+              onClick={() => handleLogging(false)}
+              disabled={!isLogging}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors shadow-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              <Save className="w-4 h-4" />
+              日志停止
+            </button>
+          </div>
+          {isLogging && (
+            <div className="mt-2 text-sm text-green-700 flex items-center gap-2">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              正在记录... ({csvData.length} 条记录)
+            </div>
+          )}
         </div>
       )}
 
@@ -583,16 +757,16 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
             {/* Status Flags */}
             <div className="col-span-2 grid grid-cols-2 gap-2 text-xs">
               <div className={`p-1 rounded text-center border ${machineStatus.tray_postion_state ? 'bg-green-100 border-green-200 text-green-700' : 'bg-red-50 border-red-100 text-red-600'}`}>
-                Tray: {machineStatus.tray_postion_state ? 'In Place' : 'Missing'}
+                蓄水盘: {machineStatus.tray_postion_state ? 'In Place' : 'Missing'}
               </div>
               <div className={`p-1 rounded text-center border ${machineStatus.brew_handle_postion_state ? 'bg-green-100 border-green-200 text-green-700' : 'bg-red-50 border-red-100 text-red-600'}`}>
-                Handle: {machineStatus.brew_handle_postion_state ? 'In Place' : 'Missing'}
+                手柄: {machineStatus.brew_handle_postion_state ? 'In Place' : 'Missing'}
               </div>
               <div className={`p-1 rounded text-center border ${machineStatus.tray_high_level_state ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-gray-100 border-gray-200 text-gray-600'}`}>
-                Water High: {machineStatus.tray_high_level_state ? 'Yes' : 'No'}
+                高水位: {machineStatus.tray_high_level_state ? 'Yes' : 'No'}
               </div>
               <div className={`p-1 rounded text-center border ${machineStatus.error_code !== 0 ? 'bg-red-100 border-red-200 text-red-700 font-bold' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
-                Err: {machineStatus.error_code}
+                错误代码: {machineStatus.error_code}
               </div>
             </div>
 

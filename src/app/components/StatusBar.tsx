@@ -1,9 +1,10 @@
-import { Thermometer, Gauge, Zap, Info, Code, Anchor, Usb } from 'lucide-react';
+import { Thermometer, Gauge, Zap, Info, Code, Anchor, Usb, Hotel } from 'lucide-react';
 
 interface StatusBarProps {
   extractionBoilerTemp: number;
   steamBoilerTemp: number;
   brewHeadTemp: number;
+  hotWaterTemp: number;
   extractionBoilerPressure: number;
   steamBoilerPressure: number;
   flowRate: number;
@@ -14,6 +15,7 @@ export function StatusBar({
   extractionBoilerTemp,
   steamBoilerTemp,
   brewHeadTemp,
+  hotWaterTemp,
   extractionBoilerPressure,
   steamBoilerPressure,
   flowRate,
@@ -34,7 +36,7 @@ export function StatusBar({
           <Thermometer className="w-5 h-5 text-red-400" />
           <div>
             <div className="text-xs opacity-80">萃取锅炉温度</div>
-            <div className="font-mono text-sm text-red-300">{extractionBoilerTemp.toFixed(1)} °C</div>
+            <div className="font-mono text-lg text-red-300">{extractionBoilerTemp.toFixed(1)} °C</div>
           </div>
         </div>
 
@@ -42,7 +44,7 @@ export function StatusBar({
           <Thermometer className="w-5 h-5 text-red-400" />
           <div>
             <div className="text-xs opacity-80">蒸汽锅炉温度</div>
-            <div className="font-mono text-sm text-red-300">{steamBoilerTemp.toFixed(1)} °C</div>
+            <div className="font-mono text-lg text-red-300">{steamBoilerTemp.toFixed(1)} °C</div>
           </div>
         </div>
 
@@ -50,7 +52,15 @@ export function StatusBar({
           <Thermometer className="w-5 h-5 text-red-400" />
           <div>
             <div className="text-xs opacity-80">冲煮头温度</div>
-            <div className="font-mono text-sm text-red-300">{brewHeadTemp.toFixed(1)} °C</div>
+            <div className="font-mono text-lg text-red-300">{brewHeadTemp.toFixed(1)} °C</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 bg-red-500/20 px-4 py-3 rounded-lg backdrop-blur-sm border border-red-400/30">
+          <Thermometer className="w-5 h-5 text-red-400" />
+          <div>
+            <div className="text-xs opacity-80">热水温度</div>
+            <div className="font-mono text-lg text-red-300">{hotWaterTemp.toFixed(1)} °C</div>
           </div>
         </div>
 
@@ -59,7 +69,7 @@ export function StatusBar({
           <Gauge className="w-5 h-5 text-blue-400" />
           <div>
             <div className="text-xs opacity-80">萃取锅炉压力</div>
-            <div className="font-mono text-sm text-blue-300">{extractionBoilerPressure.toFixed(2)} bar</div>
+            <div className="font-mono text-lg text-blue-300">{extractionBoilerPressure.toFixed(1)} bar</div>
           </div>
         </div>
 
@@ -67,7 +77,7 @@ export function StatusBar({
           <Gauge className="w-5 h-5 text-blue-400" />
           <div>
             <div className="text-xs opacity-80">蒸汽锅炉压力</div>
-            <div className="font-mono text-sm text-blue-300">{steamBoilerPressure.toFixed(2)} bar</div>
+            <div className="font-mono text-lg text-blue-300">{steamBoilerPressure.toFixed(1)} bar</div>
           </div>
         </div>
 
@@ -76,7 +86,7 @@ export function StatusBar({
           <Zap className="w-5 h-5 text-green-400" />
           <div>
             <div className="text-xs opacity-80">流速</div>
-            <div className="font-mono text-sm text-green-300">{flowRate.toFixed(1)} ml/s</div>
+            <div className="font-mono text-lg text-green-300">{flowRate.toFixed(1)} ml/s</div>
           </div>
         </div>
 
@@ -84,8 +94,8 @@ export function StatusBar({
         <div className="flex items-center gap-2 bg-amber-500/20 px-4 py-3 rounded-lg backdrop-blur-sm border border-amber-400/30">
           <Info className="w-5 h-5 text-amber-400" />
           <div>
-            <div className="text-xs opacity-80">CTR</div>
-            <div className="font-mono text-sm text-amber-300">{ctrVersion}</div>
+            <div className="text-xs opacity-80">CTR版本</div>
+            <div className="font-mono text-lg text-amber-300">{ctrVersion}</div>
           </div>
         </div>
 

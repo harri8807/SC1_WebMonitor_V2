@@ -7,16 +7,19 @@ export default function App() {
   const [extractionBoilerTemp, setExtractionBoilerTemp] = useState(0);
   const [steamBoilerTemp, setSteamBoilerTemp] = useState(0);
   const [brewHeadTemp, setBrewHeadTemp] = useState(0);
+  const [hotWaterTemp, setHotWaterTemp] = useState(0);
   const [extractionBoilerPressure, setExtractionBoilerPressure] = useState(0);
   const [steamBoilerPressure, setSteamBoilerPressure] = useState(0);
   const [flowRate, setFlowRate] = useState(0);
   const [ctrVersion, setCtrVersion] = useState('-');
 
+  const chartWindowSize = 120;
+
   // Initialize empty data structures with current time
   const initData = () => {
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    return Array.from({ length: 20 }, (_, i) => ({
+    return Array.from({ length: chartWindowSize }, (_, i) => ({
       time: timeStr,
       value: 0
     }));
@@ -25,6 +28,7 @@ export default function App() {
   const [extractionBoilerTempData, setExtractionBoilerTempData] = useState(initData);
   const [steamBoilerTempData, setSteamBoilerTempData] = useState(initData);
   const [brewHeadTempData, setBrewHeadTempData] = useState(initData);
+  const [hotWaterTempData, setHotWaterTempData] = useState(initData);
   const [extractionBoilerPressureData, setExtractionBoilerPressureData] = useState(initData);
   const [steamBoilerPressureData, setSteamBoilerPressureData] = useState(initData);
   const [flowRateData, setFlowRateData] = useState(initData);
@@ -37,6 +41,7 @@ export default function App() {
     setExtractionBoilerTemp(status.brew_boiler_temperature);
     setSteamBoilerTemp(status.steam_boiler_temperature);
     setBrewHeadTemp(status.brew_head_temperature);
+    setHotWaterTemp(status.hot_water_temperature);
     setExtractionBoilerPressure(status.brew_boiler_pressure);
     setSteamBoilerPressure(status.steam_boiler_pressure);
     setFlowRate(status.flow_rate);
@@ -53,6 +58,7 @@ export default function App() {
     setExtractionBoilerTempData(prev => updateChartData(prev, status.brew_boiler_temperature));
     setSteamBoilerTempData(prev => updateChartData(prev, status.steam_boiler_temperature));
     setBrewHeadTempData(prev => updateChartData(prev, status.brew_head_temperature));
+    setHotWaterTempData(prev => updateChartData(prev, status.hot_water_temperature));
     setExtractionBoilerPressureData(prev => updateChartData(prev, status.brew_boiler_pressure));
     setSteamBoilerPressureData(prev => updateChartData(prev, status.steam_boiler_pressure));
     setFlowRateData(prev => updateChartData(prev, status.flow_rate));
@@ -66,6 +72,7 @@ export default function App() {
         extractionBoilerTemp={extractionBoilerTemp}
         steamBoilerTemp={steamBoilerTemp}
         brewHeadTemp={brewHeadTemp}
+        hotWaterTemp={hotWaterTemp}
         extractionBoilerPressure={extractionBoilerPressure}
         steamBoilerPressure={steamBoilerPressure}
         flowRate={flowRate}
@@ -80,6 +87,7 @@ export default function App() {
             extractionBoilerTempData={extractionBoilerTempData}
             steamBoilerTempData={steamBoilerTempData}
             brewHeadTempData={brewHeadTempData}
+            hotWaterTempData={hotWaterTempData}
             extractionBoilerPressureData={extractionBoilerPressureData}
             steamBoilerPressureData={steamBoilerPressureData}
             flowRateData={flowRateData}

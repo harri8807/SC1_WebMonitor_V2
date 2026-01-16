@@ -5,6 +5,7 @@ interface ChartTabsProps {
   extractionBoilerTempData: Array<{ time: string; value: number }>;
   steamBoilerTempData: Array<{ time: string; value: number }>;
   brewHeadTempData: Array<{ time: string; value: number }>;
+  hotWaterTempData: Array<{ time: string; value: number }>;
   extractionBoilerPressureData: Array<{ time: string; value: number }>;
   steamBoilerPressureData: Array<{ time: string; value: number }>;
   flowRateData: Array<{ time: string; value: number }>;
@@ -14,6 +15,7 @@ export function ChartTabs({
   extractionBoilerTempData,
   steamBoilerTempData,
   brewHeadTempData,
+  hotWaterTempData,
   extractionBoilerPressureData,
   steamBoilerPressureData,
   flowRateData 
@@ -34,6 +36,7 @@ export function ChartTabs({
         extractionBoiler: item.value,
         steamBoiler: steamBoilerTempData[index]?.value,
         brewHead: brewHeadTempData[index]?.value,
+        hotWater: hotWaterTempData[index]?.value,
       }));
     } else if (activeTab === 'pressure') {
       return extractionBoilerPressureData.map((item, index) => ({
@@ -137,6 +140,16 @@ export function ChartTabs({
                   dot={{ fill: '#f59e0b', r: 3 }}
                   activeDot={{ r: 5 }}
                   name="冲煮头温度 (°C)"
+                />
+
+                <Line 
+                  type="monotone" 
+                  dataKey="hotWater" 
+                  stroke="#eab308"
+                  strokeWidth={2}
+                  dot={{ fill: '#eab308', r: 3 }}
+                  activeDot={{ r: 5 }}
+                  name="热水温度 (°C)"
                 />
               </>
             )}
