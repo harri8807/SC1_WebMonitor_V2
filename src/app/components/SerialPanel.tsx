@@ -42,7 +42,7 @@ export interface MachineStatus {
   brew_boiler_temperature: number;
   brew_head_temperature: number;
   brew_pressure_level: number;
-  brew_boiler_water_level: number;
+  steam_boiler_water_level: number;
   steam_run_status: number;
   steam_boiler_pressure: number;
   steam_boiler_temperature: number;
@@ -236,7 +236,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       brew_boiler_temperature: parseFloat(normalizedParts[3]) || 0,
       brew_head_temperature: parseFloat(normalizedParts[4]) || 0,
       brew_pressure_level: parseInt(normalizedParts[5]) || 0,
-      brew_boiler_water_level: parseInt(normalizedParts[6]) || 0,
+      steam_boiler_water_level: parseInt(normalizedParts[6]) || 0,
       steam_run_status: parseInt(normalizedParts[7]) || 0,
       steam_boiler_pressure: parseFloat(normalizedParts[8]) || 0,
       steam_boiler_temperature: parseFloat(normalizedParts[9]) || 0,
@@ -442,6 +442,12 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
     await sendString(cmd);
   };
 
+  const handlePowerOnTest = async () => {
+    const cmd = "123@POWER_ON@NULL#123";
+    console.log(`[CMD] Power On Self Test`);
+    await sendString(cmd);
+  };
+
   // Convert MachineStatus array to CSV string
   const convertToCSV = (data: MachineStatus[]): string => {
     if (data.length === 0) return '';
@@ -455,7 +461,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       'brew_boiler_temperature',
       'brew_head_temperature',
       'brew_pressure_level',
-      'brew_boiler_water_level',
+      'steam_boiler_water_level',
       'steam_run_status',
       'steam_boiler_pressure',
       'steam_boiler_temperature',
@@ -637,7 +643,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
             <PlayCircle className="w-4 h-4" />
             控制
           </h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => handleExtraction(true)}
               className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors shadow-sm font-medium"
@@ -651,6 +657,13 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
             >
               <StopCircle className="w-4 h-4" />
               停止
+            </button>
+            <button
+              onClick={handlePowerOnTest}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors shadow-sm font-medium"
+            >
+              <Activity className="w-4 h-4" />
+              自检
             </button>
           </div>
         </div>
@@ -747,7 +760,11 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
                   <span className="text-xs text-gray-500">Pressure</span>
                   <span className="font-medium">{machineStatus.steam_boiler_pressure.toFixed(1)} bar</span>
                 </div>
-                <div className="flex flex-col col-span-2">
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500">Water Level</span>
+                  <span className="font-medium">{machineStatus.steam_boiler_water_level}</span>
+                </div>
+                <div className="flex flex-col">
                   <span className="text-xs text-gray-500">Milk Temp</span>
                   <span className="font-medium">{machineStatus.steam_milk_temperature.toFixed(1)}°C</span>
                 </div>
