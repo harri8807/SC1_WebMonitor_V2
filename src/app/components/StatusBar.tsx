@@ -5,6 +5,7 @@ interface StatusBarProps {
   steamBoilerTemp: number;
   brewHeadTemp: number;
   hotWaterTemp: number;
+  milkFoamTemp: number;
   extractionBoilerPressure: number;
   steamBoilerPressure: number;
   flowRate: number;
@@ -16,6 +17,7 @@ export function StatusBar({
   steamBoilerTemp,
   brewHeadTemp,
   hotWaterTemp,
+  milkFoamTemp,
   extractionBoilerPressure,
   steamBoilerPressure,
   flowRate,
@@ -64,6 +66,14 @@ export function StatusBar({
           </div>
         </div>
 
+        <div className="flex items-center gap-2 bg-red-500/20 px-4 py-3 rounded-lg backdrop-blur-sm border border-red-400/30">
+          <Thermometer className="w-5 h-5 text-red-400" />
+          <div>
+            <div className="text-xs opacity-80">奶沫温度</div>
+            <div className="font-mono text-lg text-red-300">{milkFoamTemp.toFixed(1)} °C</div>
+          </div>
+        </div>
+
         {/* 压力区域 - 蓝色系 */}
         <div className="flex items-center gap-2 bg-blue-500/20 px-4 py-3 rounded-lg backdrop-blur-sm border border-blue-400/30">
           <Gauge className="w-5 h-5 text-blue-400" />
@@ -87,15 +97,6 @@ export function StatusBar({
           <div>
             <div className="text-xs opacity-80">流速</div>
             <div className="font-mono text-lg text-green-300">{flowRate.toFixed(1)} ml/s</div>
-          </div>
-        </div>
-
-        {/* CTR版本 - 紫色系 */}
-        <div className="flex items-center gap-2 bg-amber-500/20 px-4 py-3 rounded-lg backdrop-blur-sm border border-amber-400/30">
-          <Info className="w-5 h-5 text-amber-400" />
-          <div>
-            <div className="text-xs opacity-80">CTR版本</div>
-            <div className="font-mono text-lg text-amber-300">{ctrVersion}</div>
           </div>
         </div>
 

@@ -8,6 +8,7 @@ export default function App() {
   const [steamBoilerTemp, setSteamBoilerTemp] = useState(0);
   const [brewHeadTemp, setBrewHeadTemp] = useState(0);
   const [hotWaterTemp, setHotWaterTemp] = useState(0);
+  const [milkFoamTemp, setMilkFoamTemp] = useState(0);
   const [extractionBoilerPressure, setExtractionBoilerPressure] = useState(0);
   const [steamBoilerPressure, setSteamBoilerPressure] = useState(0);
   const [flowRate, setFlowRate] = useState(0);
@@ -42,6 +43,7 @@ export default function App() {
     setSteamBoilerTemp(status.steam_boiler_temperature);
     setBrewHeadTemp(status.brew_head_temperature);
     setHotWaterTemp(status.hot_water_temperature);
+    setMilkFoamTemp(status.steam_milk_temperature);
     setExtractionBoilerPressure(status.brew_boiler_pressure);
     setSteamBoilerPressure(status.steam_boiler_pressure);
     setFlowRate(status.flow_rate);
@@ -73,6 +75,7 @@ export default function App() {
         steamBoilerTemp={steamBoilerTemp}
         brewHeadTemp={brewHeadTemp}
         hotWaterTemp={hotWaterTemp}
+        milkFoamTemp={milkFoamTemp}
         extractionBoilerPressure={extractionBoilerPressure}
         steamBoilerPressure={steamBoilerPressure}
         flowRate={flowRate}
