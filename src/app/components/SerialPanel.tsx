@@ -423,13 +423,43 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
     }
   };
 
+  const sendInterferingCommand = async (command: string) => {
+    const wasPolling = autoPoll;
+    if (wasPolling) {
+      setAutoPoll(false);
+    }
+
+    // Give React time to re-render and stop the polling
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    await sendString(command);
+
+    // Resume polling after a delay
+    if (wasPolling) {
+      setTimeout(() => setAutoPoll(true), 500);
+    }
+  };
+
   const handleSend = async () => {
     if (!sendData.trim() || !isConnected || !writerRef.current) return;
     try {
       console.log(`[${new Date().toLocaleTimeString()}] Send: ${sendData}`);
+      const commandToSend = sendData + '\n';
+
+      const wasPolling = autoPoll;
+      if (wasPolling) {
+        setAutoPoll(false);
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const encoder = new TextEncoder();
-      const data = encoder.encode(sendData + '\n');
+      const data = encoder.encode(commandToSend);
       await writerRef.current.write(data);
+
+      if (wasPolling) {
+        setTimeout(() => setAutoPoll(true), 500);
+      }
+
       setSendData('');
     } catch (err) {
       console.error('Send error:', err);
@@ -437,15 +467,15 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   };
 
   const handleExtraction = async (start: boolean) => {
-    const cmd = start ? "102@EXTRACT@START#" : "123@OUT@NULL#123";
+    const cmd = start ? "102@FREE_PRESSURE@FREE_PRESSURE=40,9,93#102" : "123@OUT@NULL#123";
     console.log(`[CMD] ${start ? 'Start' : 'Stop'} Extraction`);
-    await sendString(cmd);
+    await sendInterferingCommand(cmd);
   };
 
   const handlePowerOnTest = async () => {
     const cmd = "123@POWER_ON@NULL#123";
     console.log(`[CMD] Power On Self Test`);
-    await sendString(cmd);
+    await sendInterferingCommand(cmd);
   };
 
   // Convert MachineStatus array to CSV string
@@ -646,7 +676,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
           <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => handleExtraction(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors shadow-sm font-medium"
+              disabled={!machineStatus || machineStatus.brew_boiler_temperature < 90 || machineStatus.drink_making_flg !== 0}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors shadow-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               <Play className="w-4 h-4 fill-current" />
               萃取
