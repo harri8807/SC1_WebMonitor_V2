@@ -686,7 +686,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
               <input
                 type="range"
                 min="10"
-                max="100"
+                max="200"
                 step="5"
                 value={targetWeight}
                 onChange={(e) => setTargetWeight(parseInt(e.target.value))}
@@ -695,7 +695,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
               <input
                 type="number"
                 min="10"
-                max="100"
+                max="200"
                 step="1"
                 value={targetWeight}
                 onChange={(e) => setTargetWeight(parseInt(e.target.value) || 40)}
