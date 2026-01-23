@@ -89,6 +89,9 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   const [csvData, setCsvData] = useState<MachineStatus[]>([]);
   const isLoggingRef = useRef(false);
 
+  // Target Weight for Extraction
+  const [targetWeight, setTargetWeight] = useState(40);
+
   // Port Name Mapping (store custom names for ports)
   const [portNames, setPortNames] = useState<Map<SerialPort, string>>(new Map());
 
@@ -467,8 +470,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   };
 
   const handleExtraction = async (start: boolean) => {
-    const cmd = start ? "102@FREE_PRESSURE@FREE_PRESSURE=40,9,93#102" : "123@OUT@NULL#123";
-    console.log(`[CMD] ${start ? 'Start' : 'Stop'} Extraction`);
+    const cmd = start ? `102@FREE_PRESSURE@FREE_PRESSURE=${targetWeight},9,93#102` : "123@OUT@NULL#123";
+    console.log(`[CMD] ${start ? 'Start' : 'Stop'} Extraction (Target: ${targetWeight}g)`);
     await sendInterferingCommand(cmd);
   };
 
@@ -673,6 +676,34 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
             <PlayCircle className="w-4 h-4" />
             控制
           </h3>
+
+          {/* 目标克重选择器 */}
+          <div className="mb-3 bg-white p-3 rounded-lg border border-purple-200">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              目标克重 (g)
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="10"
+                max="100"
+                step="5"
+                value={targetWeight}
+                onChange={(e) => setTargetWeight(parseInt(e.target.value))}
+                className="flex-1 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+              />
+              <input
+                type="number"
+                min="10"
+                max="100"
+                step="1"
+                value={targetWeight}
+                onChange={(e) => setTargetWeight(parseInt(e.target.value) || 40)}
+                className="w-20 px-2 py-1 border border-gray-300 rounded text-center font-mono font-semibold text-purple-700"
+              />
+            </div>
+          </div>
+
           <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => handleExtraction(true)}
