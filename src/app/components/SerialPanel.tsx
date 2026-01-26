@@ -92,6 +92,9 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   // Target Weight for Extraction
   const [targetWeight, setTargetWeight] = useState(40);
 
+  // Target Water Temperature for Hot Water
+  const [targetWaterTemp, setTargetWaterTemp] = useState(80);
+
   // Port Name Mapping (store custom names for ports)
   const [portNames, setPortNames] = useState<Map<SerialPort, string>>(new Map());
 
@@ -481,6 +484,12 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
     await sendInterferingCommand(cmd);
   };
 
+  const handleHotWater = async () => {
+    const cmd = `102@HOT_WATER@HOT_WATER=${targetWeight},${targetWaterTemp}#102`;
+    console.log(`[CMD] Hot Water (Target: ${targetWeight}ml,${targetWaterTemp}°C)`);
+    await sendInterferingCommand(cmd);
+  };
+
   // Convert MachineStatus array to CSV string
   const convertToCSV = (data: MachineStatus[]): string => {
     if (data.length === 0) return '';
@@ -704,25 +713,64 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          {/* 目标水温选择器 */}
+          <div className="mb-3 bg-white p-3 rounded-lg border border-purple-200">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              目标水温 (°C)
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="50"
+                max="100"
+                step="5"
+                value={targetWaterTemp}
+                onChange={(e) => setTargetWaterTemp(parseInt(e.target.value))}
+                className="flex-1 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+              />
+              <input
+                type="number"
+                min="50"
+                max="100"
+                step="5"
+                value={targetWaterTemp}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 80;
+                  const clamped = Math.min(100, Math.max(50, val));
+                  const rounded = Math.round(clamped / 5) * 5;
+                  setTargetWaterTemp(rounded);
+                }}
+                className="w-20 px-2 py-1 border border-gray-300 rounded text-center font-mono font-semibold text-purple-700"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => handleExtraction(true)}
               disabled={!machineStatus || machineStatus.brew_boiler_temperature < 90 || machineStatus.drink_making_flg !== 0}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors shadow-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors shadow-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
             >
               <Play className="w-4 h-4 fill-current" />
               萃取
             </button>
             <button
+              onClick={handleHotWater}
+              className="flex items-center justify-center gap-1 px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors shadow-sm font-medium text-sm"
+            >
+              <Thermometer className="w-4 h-4" />
+              热水
+            </button>
+            <button
               onClick={() => handleExtraction(false)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors shadow-sm font-medium"
+              className="flex items-center justify-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors shadow-sm font-medium text-sm"
             >
               <StopCircle className="w-4 h-4" />
               停止
             </button>
             <button
               onClick={handlePowerOnTest}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors shadow-sm font-medium"
+              className="flex items-center justify-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors shadow-sm font-medium text-sm"
             >
               <Activity className="w-4 h-4" />
               自检
