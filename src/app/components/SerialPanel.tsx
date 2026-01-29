@@ -95,6 +95,14 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   // Target Water Temperature for Hot Water
   const [targetWaterTemp, setTargetWaterTemp] = useState(80);
 
+  // Voice Alarm State for Steam Boiler Pressure
+  const [isAlarmActive, setIsAlarmActive] = useState(false);
+  const [isManualAlarmTest, setIsManualAlarmTest] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const oscillatorRef = useRef<OscillatorNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const alarmIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // Port Name Mapping (store custom names for ports)
   const [portNames, setPortNames] = useState<Map<SerialPort, string>>(new Map());
 
@@ -127,6 +135,111 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       onPortSelected('');
     }
   }, [isConnected, selectedPort, ports, portNames, onPortSelected]);
+
+  // Steam Boiler Pressure Alarm Monitoring
+  useEffect(() => {
+    // Skip automatic monitoring if in manual test mode
+    if (isManualAlarmTest) return;
+
+    if (!machineStatus) return;
+
+    const PRESSURE_THRESHOLD = 3.0;
+    const currentPressure = machineStatus.steam_boiler_pressure;
+
+    if (currentPressure > PRESSURE_THRESHOLD && !isAlarmActive) {
+      // Start alarm
+      startAlarm();
+      setIsAlarmActive(true);
+      console.log(`[ALARM] Steam boiler pressure exceeded ${PRESSURE_THRESHOLD} bar: ${currentPressure.toFixed(2)} bar`);
+    } else if (currentPressure <= PRESSURE_THRESHOLD && isAlarmActive) {
+      // Stop alarm
+      stopAlarm();
+      setIsAlarmActive(false);
+      console.log(`[ALARM] Steam boiler pressure normal: ${currentPressure.toFixed(2)} bar`);
+    }
+  }, [machineStatus?.steam_boiler_pressure, isManualAlarmTest]);
+
+  // Cleanup alarm on unmount
+  useEffect(() => {
+    return () => {
+      stopAlarm();
+    };
+  }, []);
+
+  const startAlarm = () => {
+    try {
+      // Initialize AudioContext if not already created
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+
+      const audioContext = audioContextRef.current;
+
+      // Create oscillator and gain node
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // 800Hz tone
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillatorRef.current = oscillator;
+      gainNodeRef.current = gainNode;
+
+      oscillator.start();
+
+      // Create beep pattern: 500ms on, 500ms off
+      let isBeeping = true;
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+
+      alarmIntervalRef.current = setInterval(() => {
+        if (gainNodeRef.current) {
+          if (isBeeping) {
+            gainNodeRef.current.gain.setValueAtTime(0, audioContext.currentTime);
+          } else {
+            gainNodeRef.current.gain.setValueAtTime(0.3, audioContext.currentTime);
+          }
+          isBeeping = !isBeeping;
+        }
+      }, 500);
+
+    } catch (error) {
+      console.error('[ALARM] Failed to start alarm:', error);
+    }
+  };
+
+  const stopAlarm = () => {
+    try {
+      // Clear interval
+      if (alarmIntervalRef.current) {
+        clearInterval(alarmIntervalRef.current);
+        alarmIntervalRef.current = null;
+      }
+
+      // Stop oscillator
+      if (oscillatorRef.current) {
+        oscillatorRef.current.stop();
+        oscillatorRef.current.disconnect();
+        oscillatorRef.current = null;
+      }
+
+      // Disconnect gain node
+      if (gainNodeRef.current) {
+        gainNodeRef.current.disconnect();
+        gainNodeRef.current = null;
+      }
+
+      // Close audio context
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+    } catch (error) {
+      console.error('[ALARM] Failed to stop alarm:', error);
+    }
+  };
 
   // Polling Effect
   useEffect(() => {
@@ -490,6 +603,22 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
     await sendInterferingCommand(cmd);
   };
 
+  const handleAlarmTest = () => {
+    if (isManualAlarmTest) {
+      // Stop test
+      stopAlarm();
+      setIsAlarmActive(false);
+      setIsManualAlarmTest(false);
+      console.log('[ALARM TEST] Manual test stopped');
+    } else {
+      // Start test
+      startAlarm();
+      setIsAlarmActive(true);
+      setIsManualAlarmTest(true);
+      console.log('[ALARM TEST] Manual test started');
+    }
+  };
+
   // Convert MachineStatus array to CSV string
   const convertToCSV = (data: MachineStatus[]): string => {
     if (data.length === 0) return '';
@@ -776,6 +905,20 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
               自检
             </button>
           </div>
+
+          {/* Alarm Test Button */}
+          <div className="mt-3">
+            <button
+              onClick={handleAlarmTest}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-md transition-colors shadow-sm font-medium text-sm ${isManualAlarmTest
+                  ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                  : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                }`}
+            >
+              <AlertCircle className="w-4 h-4" />
+              {isManualAlarmTest ? '停止报警测试' : '测试报警音'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -857,9 +1000,19 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
             </div>
 
             {/* Steam Section */}
-            <div className="col-span-2 bg-blue-50 p-2 rounded border border-blue-100">
-              <div className="font-semibold text-blue-800 mb-2 flex items-center gap-1">
+            <div className={`col-span-2 p-2 rounded border ${isAlarmActive
+              ? 'bg-red-100 border-red-300 animate-pulse'
+              : 'bg-blue-50 border-blue-100'
+              }`}>
+              <div className={`font-semibold mb-2 flex items-center gap-1 ${isAlarmActive ? 'text-red-800' : 'text-blue-800'
+                }`}>
                 <Gauge className="w-3 h-3" /> Steam ({machineStatus.steam_run_status ? 'Running' : 'Stopped'})
+                {isAlarmActive && (
+                  <span className="ml-auto flex items-center gap-1 text-xs bg-red-600 text-white px-2 py-1 rounded">
+                    <AlertCircle className="w-3 h-3" />
+                    压力报警!
+                  </span>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex flex-col">
@@ -868,7 +1021,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs text-gray-500">Pressure</span>
-                  <span className="font-medium">{machineStatus.steam_boiler_pressure.toFixed(1)} bar</span>
+                  <span className={`font-medium ${isAlarmActive ? 'text-red-700 font-bold' : ''
+                    }`}>{machineStatus.steam_boiler_pressure.toFixed(1)} bar</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs text-gray-500">Water Level</span>
