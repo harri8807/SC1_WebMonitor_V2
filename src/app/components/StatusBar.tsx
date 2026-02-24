@@ -30,7 +30,7 @@ export function StatusBar({
         {/* SC调试平台 标题 */}
         <div className="flex items-center gap-2 bg-slate-600/50 px-4 py-3 rounded-lg border border-slate-500/30 mr-4">
           <Anchor className="w-6 h-6 text-sky-400" />
-          <div className="text-lg font-bold text-sky-100 tracking-wide">咖啡自由SC平台V1.0.0</div>
+          <div className="text-lg font-bold text-sky-100 tracking-wide">咖啡自由SC平台V1.0.1</div>
         </div>
 
         {/* 温度区域 - 红色系 */}

@@ -95,6 +95,11 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   // Target Water Temperature for Hot Water
   const [targetWaterTemp, setTargetWaterTemp] = useState(80);
 
+  // Pre-soak control
+  const [preSoakEnabled, setPreSoakEnabled] = useState<'on' | 'off'>('off');
+  const [preSoakVolume, setPreSoakVolume] = useState<number>(30); // ml, default 30
+  const [preSoakTime, setPreSoakTime] = useState<number>(5); // seconds, default 5
+
   // Voice Alarm State for Steam Boiler Pressure
   const [isAlarmActive, setIsAlarmActive] = useState(false);
   const [isManualAlarmTest, setIsManualAlarmTest] = useState(false);
@@ -586,9 +591,18 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   };
 
   const handleExtraction = async (start: boolean) => {
-    const cmd = start ? `102@FREE_PRESSURE@FREE_PRESSURE=${targetWeight},9,93#102` : "123@OUT@NULL#123";
-    console.log(`[CMD] ${start ? 'Start' : 'Stop'} Extraction (Target: ${targetWeight}g)`);
-    await sendInterferingCommand(cmd);
+    if (start) {
+      const preFlag = preSoakEnabled === 'on' ? 1 : 0;
+      const prePart = `PRE_INFUSION=${preFlag},${preSoakVolume},${preSoakTime}`;
+      const freePart = `FREE_PRESSURE=${targetWeight},9,93`;
+      const cmd = `123@FREE_PRESSURE@${prePart}|${freePart}#123`;
+      console.log(`[CMD] Start Extraction (Target: ${targetWeight}g) -> ${cmd}`);
+      await sendInterferingCommand(cmd);
+    } else {
+      const cmd = "123@OUT@NULL#123";
+      console.log(`[CMD] Stop Extraction`);
+      await sendInterferingCommand(cmd);
+    }
   };
 
   const handlePowerOnTest = async () => {
@@ -815,66 +829,117 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
             控制
           </h3>
 
-          {/* 目标克重选择器 */}
-          <div className="mb-3 bg-white p-3 rounded-lg border border-purple-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              目标克重 (g)
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="10"
-                max="200"
-                step="5"
-                value={targetWeight}
-                onChange={(e) => setTargetWeight(parseInt(e.target.value))}
-                className="flex-1 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
-              />
-              <input
-                type="number"
-                min="10"
-                max="200"
-                step="1"
-                value={targetWeight}
-                onChange={(e) => setTargetWeight(parseInt(e.target.value) || 40)}
-                className="w-20 px-2 py-1 border border-gray-300 rounded text-center font-mono font-semibold text-purple-700"
-              />
-            </div>
-          </div>
+            {/* 预浸泡控制 */}
+            <div className="mb-3 bg-white p-3 rounded-lg border border-purple-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">预浸泡控制</label>
 
-          {/* 目标水温选择器 */}
-          <div className="mb-3 bg-white p-3 rounded-lg border border-purple-200">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              目标水温 (°C)
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="50"
-                max="100"
-                step="5"
-                value={targetWaterTemp}
-                onChange={(e) => setTargetWaterTemp(parseInt(e.target.value))}
-                className="flex-1 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
-              />
-              <input
-                type="number"
-                min="50"
-                max="100"
-                step="5"
-                value={targetWaterTemp}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value) || 80;
-                  const clamped = Math.min(100, Math.max(50, val));
-                  const rounded = Math.round(clamped / 5) * 5;
-                  setTargetWaterTemp(rounded);
-                }}
-                className="w-20 px-2 py-1 border border-gray-300 rounded text-center font-mono font-semibold text-purple-700"
-              />
-            </div>
-          </div>
+              <div className="flex items-center gap-4 mb-2">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="preSoak"
+                    checked={preSoakEnabled === 'on'}
+                    onChange={() => setPreSoakEnabled('on')}
+                    className="rounded text-blue-600"
+                  />
+                  开
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="preSoak"
+                    checked={preSoakEnabled === 'off'}
+                    onChange={() => setPreSoakEnabled('off')}
+                    className="rounded text-blue-600"
+                  />
+                  关
+                </label>
+              </div>
 
-          <div className="grid grid-cols-4 gap-2">
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">体积 (ml)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={preSoakVolume}
+                    onChange={(e) => setPreSoakVolume(parseInt(e.target.value) || 30)}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-center font-mono font-semibold text-purple-700"
+                  />
+                </div>
+                <div className="w-28">
+                  <label className="text-xs text-gray-500">时间 (s)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={preSoakTime}
+                    onChange={(e) => setPreSoakTime(parseInt(e.target.value) || 5)}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-center font-mono font-semibold text-purple-700"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 目标克重选择器 */}
+            <div className="mb-3 bg-white p-3 rounded-lg border border-purple-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                目标克重 (g)
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="10"
+                  max="200"
+                  step="5"
+                  value={targetWeight}
+                  onChange={(e) => setTargetWeight(parseInt(e.target.value))}
+                  className="flex-1 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                />
+                <input
+                  type="number"
+                  min="10"
+                  max="200"
+                  step="1"
+                  value={targetWeight}
+                  onChange={(e) => setTargetWeight(parseInt(e.target.value) || 40)}
+                  className="w-20 px-2 py-1 border border-gray-300 rounded text-center font-mono font-semibold text-purple-700"
+                />
+              </div>
+            </div>
+
+            {/* 目标水温选择器 */}
+            <div className="mb-3 bg-white p-3 rounded-lg border border-purple-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                目标水温 (°C)
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min="50"
+                  max="100"
+                  step="5"
+                  value={targetWaterTemp}
+                  onChange={(e) => setTargetWaterTemp(parseInt(e.target.value))}
+                  className="flex-1 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                />
+                <input
+                  type="number"
+                  min="50"
+                  max="100"
+                  step="5"
+                  value={targetWaterTemp}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 80;
+                    const clamped = Math.min(100, Math.max(50, val));
+                    const rounded = Math.round(clamped / 5) * 5;
+                    setTargetWaterTemp(rounded);
+                  }}
+                  className="w-20 px-2 py-1 border border-gray-300 rounded text-center font-mono font-semibold text-purple-700"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => handleExtraction(true)}
               disabled={!machineStatus || machineStatus.brew_boiler_temperature < 90 || machineStatus.drink_making_flg !== 0}
