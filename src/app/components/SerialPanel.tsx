@@ -97,8 +97,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
 
   // Pre-soak control
   const [preSoakEnabled, setPreSoakEnabled] = useState<'on' | 'off'>('off');
-  const [preSoakVolume, setPreSoakVolume] = useState<number>(30); // ml, default 30
-  const [preSoakTime, setPreSoakTime] = useState<number>(5); // seconds, default 5
+  const [preSoakVolume, setPreSoakVolume] = useState<number>(20); // ml, default 20
+  const [preSoakTime, setPreSoakTime] = useState<number>(3); // seconds, default 3
 
   // Voice Alarm State for Steam Boiler Pressure
   const [isAlarmActive, setIsAlarmActive] = useState(false);
