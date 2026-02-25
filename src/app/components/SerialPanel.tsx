@@ -76,6 +76,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   const [selectedPort, setSelectedPort] = useState<SerialPort | null>(null);
 
   const [sendData, setSendData] = useState('');
+  const [sendDataSticky, setSendDataSticky] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [isReading, setIsReading] = useState(false);
 
@@ -584,9 +585,33 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
         setTimeout(() => setAutoPoll(true), 500);
       }
 
-      setSendData('');
+      // Intentionally keep `sendData` after sending so the input is preserved
     } catch (err) {
       console.error('Send error:', err);
+    }
+  };
+
+  const handleSendSticky = async () => {
+    if (!sendDataSticky.trim() || !isConnected || !writerRef.current) return;
+    try {
+      console.log(`[${new Date().toLocaleTimeString()}] Send(sticky): ${sendDataSticky}`);
+
+      const wasPolling = autoPoll;
+      if (wasPolling) {
+        setAutoPoll(false);
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const encoder = new TextEncoder();
+      const data = encoder.encode(sendDataSticky + '\n');
+      await writerRef.current.write(data);
+
+      if (wasPolling) {
+        setTimeout(() => setAutoPoll(true), 500);
+      }
+      // NOTE: intentionally do NOT clear sendDataSticky
+    } catch (err) {
+      console.error('Send(sticky) error:', err);
     }
   };
 
@@ -1139,7 +1164,26 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
           >
             <Send className="w-4 h-4" />
-            发送
+            发送1
+          </button>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <input
+            type="text"
+            value={sendDataSticky}
+            onChange={(e) => setSendDataSticky(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSendSticky()}
+            placeholder="保留发送内容（发送后不清空）..."
+            disabled={!isConnected}
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+          />
+          <button
+            onClick={handleSendSticky}
+            disabled={!isConnected}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <Send className="w-4 h-4" />
+            发送2
           </button>
         </div>
       </div>
