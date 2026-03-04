@@ -171,9 +171,9 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
     }
   }, [machineStatus?.steam_boiler_pressure, isManualAlarmTest]);
 
-  // Extraction timer: start when drink_making_flg becomes non-zero, stop when it becomes 0
+  // Extraction timer: start when drink_making_flg becomes 4 or 6, stop otherwise
   useEffect(() => {
-    const running = !!machineStatus && machineStatus.drink_making_flg !== 0;
+    const running = !!machineStatus && (machineStatus.drink_making_flg === 4 || machineStatus.drink_making_flg === 6);
 
     if (running && !extractionRunningRef.current) {
       extractionStartRef.current = Date.now();
@@ -1015,7 +1015,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
             <div className="grid grid-cols-4 gap-2">
             <button
               onClick={() => handleExtraction(true)}
-              disabled={!machineStatus || machineStatus.brew_boiler_temperature < 90 || machineStatus.drink_making_flg !== 0}
+              disabled={!machineStatus || machineStatus.brew_boiler_temperature < 90 || machineStatus.drink_making_flg === 4 || machineStatus.drink_making_flg === 6}
               className="flex items-center justify-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors shadow-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
             >
               <Play className="w-4 h-4 fill-current" />
