@@ -96,6 +96,12 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   // Target Water Temperature for Hot Water
   const [targetWaterTemp, setTargetWaterTemp] = useState(80);
 
+  // Extraction timer (seconds)
+  const [extractionTime, setExtractionTime] = useState<number>(0);
+  const extractionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const extractionStartRef = useRef<number | null>(null);
+  const extractionRunningRef = useRef<boolean>(false);
+
   // Pre-soak control
   const [preSoakEnabled, setPreSoakEnabled] = useState<'on' | 'off'>('off');
   const [preSoakVolume, setPreSoakVolume] = useState<number>(20); // ml, default 20
@@ -164,6 +170,44 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       console.log(`[ALARM] Steam boiler pressure normal: ${currentPressure.toFixed(2)} bar`);
     }
   }, [machineStatus?.steam_boiler_pressure, isManualAlarmTest]);
+
+  // Extraction timer: start when drink_making_flg becomes non-zero, stop when it becomes 0
+  useEffect(() => {
+    const running = !!machineStatus && machineStatus.drink_making_flg !== 0;
+
+    if (running && !extractionRunningRef.current) {
+      extractionStartRef.current = Date.now();
+      extractionRunningRef.current = true;
+      setExtractionTime(0);
+      extractionTimerRef.current = setInterval(() => {
+        if (extractionStartRef.current !== null) {
+          setExtractionTime(Math.floor((Date.now() - extractionStartRef.current) / 1000));
+        }
+      }, 1000);
+    } else if (!running && extractionRunningRef.current) {
+      if (extractionTimerRef.current) {
+        clearInterval(extractionTimerRef.current);
+        extractionTimerRef.current = null;
+      }
+      if (extractionStartRef.current !== null) {
+        setExtractionTime(Math.floor((Date.now() - extractionStartRef.current) / 1000));
+      }
+      extractionStartRef.current = null;
+      extractionRunningRef.current = false;
+    }
+
+    return () => { };
+  }, [machineStatus?.drink_making_flg]);
+
+  // Cleanup extraction timer on unmount
+  useEffect(() => {
+    return () => {
+      if (extractionTimerRef.current) {
+        clearInterval(extractionTimerRef.current);
+        extractionTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // Cleanup alarm on unmount
   useEffect(() => {
@@ -617,6 +661,10 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
 
   const handleExtraction = async (start: boolean) => {
     if (start) {
+      // Reset extraction timer when user initiates extraction
+      setExtractionTime(0);
+      extractionStartRef.current = null;
+      extractionRunningRef.current = false;
       const preFlag = preSoakEnabled === 'on' ? 1 : 0;
       const prePart = `PRE_INFUSION=${preFlag},${preSoakVolume},${preSoakTime}`;
       const freePart = `FREE_PRESSURE=${targetWeight},9,93`;
@@ -1079,8 +1127,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
                   <span className="font-medium">{machineStatus.brew_boiler_pressure.toFixed(1)} bar</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-500">Head Temp</span>
-                  <span className="font-medium">{machineStatus.brew_head_temperature.toFixed(1)}°C</span>
+                  <span className="text-xs text-gray-500">萃取时间</span>
+                  <span className="font-medium">{extractionTime}s</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs text-gray-500">Weight</span>
