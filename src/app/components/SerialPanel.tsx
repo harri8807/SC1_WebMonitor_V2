@@ -172,15 +172,15 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
     }
   }, [machineStatus?.steam_boiler_pressure, isManualAlarmTest]);
 
-  // Extraction timer: start only when drink_making_flg transitions from 0 -> 4 or 0 -> 6
+  // Extraction timer: start only when drink_making_flg transitions from 2 -> 4 or 2 -> 6, stop when it becomes 0
   useEffect(() => {
     const currentFlag = machineStatus?.drink_making_flg ?? null;
     const prevFlag = prevDrinkFlagRef.current;
 
     const isBrewFlag = (f: number | null) => f === 4 || f === 6;
 
-    // Start condition: prev === 0 and now is 4 or 6
-    if (isBrewFlag(currentFlag) && !extractionRunningRef.current && prevFlag === 0) {
+    // Start only when previous flag was 2 and current becomes 4 or 6
+    if (prevFlag === 2 && isBrewFlag(currentFlag) && !extractionRunningRef.current) {
       extractionStartRef.current = Date.now();
       extractionRunningRef.current = true;
       setExtractionTime(0);
@@ -191,8 +191,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       }, 1000);
     }
 
-    // Stop condition: previously brewing (4/6) and now not brewing
-    if (!isBrewFlag(currentFlag) && extractionRunningRef.current) {
+    // Stop when flag becomes 0 (regardless of previous)
+    if (currentFlag === 0 && extractionRunningRef.current) {
       if (extractionTimerRef.current) {
         clearInterval(extractionTimerRef.current);
         extractionTimerRef.current = null;
@@ -204,7 +204,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       extractionRunningRef.current = false;
     }
 
-    // Update previous flag for next change detection
+    // Remember current flag for next transition detection
     prevDrinkFlagRef.current = currentFlag;
 
     return () => { };
