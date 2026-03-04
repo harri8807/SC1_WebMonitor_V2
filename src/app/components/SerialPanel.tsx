@@ -191,8 +191,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       }, 1000);
     }
 
-    // Stop when flag becomes 0 (regardless of previous)
-    if (currentFlag === 0 && extractionRunningRef.current) {
+    // Stop when flag becomes 0 or 3 (regardless of previous)
+    if ((currentFlag === 0 || currentFlag === 3) && extractionRunningRef.current) {
       if (extractionTimerRef.current) {
         clearInterval(extractionTimerRef.current);
         extractionTimerRef.current = null;
