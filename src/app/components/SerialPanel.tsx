@@ -101,6 +101,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   const extractionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const extractionStartRef = useRef<number | null>(null);
   const extractionRunningRef = useRef<boolean>(false);
+  const prevDrinkFlagRef = useRef<number | null>(null);
 
   // Pre-soak control
   const [preSoakEnabled, setPreSoakEnabled] = useState<'on' | 'off'>('off');
@@ -171,11 +172,15 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
     }
   }, [machineStatus?.steam_boiler_pressure, isManualAlarmTest]);
 
-  // Extraction timer: start when drink_making_flg becomes 4 or 6, stop otherwise
+  // Extraction timer: start only when drink_making_flg transitions from 0 -> 4 or 0 -> 6
   useEffect(() => {
-    const running = !!machineStatus && (machineStatus.drink_making_flg === 4 || machineStatus.drink_making_flg === 6);
+    const currentFlag = machineStatus?.drink_making_flg ?? null;
+    const prevFlag = prevDrinkFlagRef.current;
 
-    if (running && !extractionRunningRef.current) {
+    const isBrewFlag = (f: number | null) => f === 4 || f === 6;
+
+    // Start condition: prev === 0 and now is 4 or 6
+    if (isBrewFlag(currentFlag) && !extractionRunningRef.current && prevFlag === 0) {
       extractionStartRef.current = Date.now();
       extractionRunningRef.current = true;
       setExtractionTime(0);
@@ -184,7 +189,10 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
           setExtractionTime(Math.floor((Date.now() - extractionStartRef.current) / 1000));
         }
       }, 1000);
-    } else if (!running && extractionRunningRef.current) {
+    }
+
+    // Stop condition: previously brewing (4/6) and now not brewing
+    if (!isBrewFlag(currentFlag) && extractionRunningRef.current) {
       if (extractionTimerRef.current) {
         clearInterval(extractionTimerRef.current);
         extractionTimerRef.current = null;
@@ -195,6 +203,9 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       extractionStartRef.current = null;
       extractionRunningRef.current = false;
     }
+
+    // Update previous flag for next change detection
+    prevDrinkFlagRef.current = currentFlag;
 
     return () => { };
   }, [machineStatus?.drink_making_flg]);
