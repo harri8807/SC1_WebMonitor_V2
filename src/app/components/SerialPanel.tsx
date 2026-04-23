@@ -49,7 +49,6 @@ export interface MachineStatus {
   steam_milk_temperature: number;
   steam_pressure_level: number;
   hot_water_run_status: number;
-  hot_water_percent_level: number;
   hot_water_temperature: number;
   tray_postion_state: number;
   brew_handle_postion_state: number;
@@ -397,14 +396,14 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
     const csvData = remaining.substring(0, endIndex);
     const parts = csvData.split(',').map(s => s.trim());
 
-    if (parts.length < 27) return;
+    if (parts.length < 26) return;
 
     // If firmware version comes in as a dotted segment split across fields (e.g. 0.0.2),
     // rejoin the tail so we can parse the fixed fields correctly.
     let normalizedParts = parts;
-    if (parts.length > 27) {
-      const head = parts.slice(0, 26);
-      const version = parts.slice(26).join('.');
+    if (parts.length > 26) {
+      const head = parts.slice(0, 25);
+      const version = parts.slice(25).join('.');
       normalizedParts = [...head, version];
     }
 
@@ -423,20 +422,19 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       steam_milk_temperature: parseFloat(normalizedParts[10]) || 0,
       steam_pressure_level: parseInt(normalizedParts[11]) || 0,
       hot_water_run_status: parseInt(normalizedParts[12]) || 0,
-      hot_water_percent_level: parseInt(normalizedParts[13]) || 0,
-      hot_water_temperature: parseFloat(normalizedParts[14]) || 0,
-      tray_postion_state: parseInt(normalizedParts[15]) || 0,
-      brew_handle_postion_state: parseInt(normalizedParts[16]) || 0,
-      hot_switch_postion_state: parseInt(normalizedParts[17]) || 0,
-      tray_high_level_state: parseInt(normalizedParts[18]) || 0,
-      tray_low_level_state_1: parseInt(normalizedParts[19]) || 0,
-      tray_low_level_state_2: parseInt(normalizedParts[20]) || 0,
-      current_stage: parseInt(normalizedParts[21]) || 0,
-      total_stage: parseInt(normalizedParts[22]) || 0,
-      drink_making_flg: parseInt(normalizedParts[23]) || 0,
-      liquid_adc: parseInt(normalizedParts[24]) || 0,
-      liquid_weight: parseFloat(normalizedParts[25]) || 0,
-      ucFwVersion: normalizedParts[26] || '',
+      hot_water_temperature: parseFloat(normalizedParts[13]) || 0,
+      tray_postion_state: parseInt(normalizedParts[14]) || 0,
+      brew_handle_postion_state: parseInt(normalizedParts[15]) || 0,
+      hot_switch_postion_state: parseInt(normalizedParts[16]) || 0,
+      tray_high_level_state: parseInt(normalizedParts[17]) || 0,
+      tray_low_level_state_1: parseInt(normalizedParts[18]) || 0,
+      tray_low_level_state_2: parseInt(normalizedParts[19]) || 0,
+      current_stage: parseInt(normalizedParts[20]) || 0,
+      total_stage: parseInt(normalizedParts[21]) || 0,
+      drink_making_flg: parseInt(normalizedParts[22]) || 0,
+      liquid_adc: parseInt(normalizedParts[23]) || 0,
+      liquid_weight: parseFloat(normalizedParts[24]) || 0,
+      ucFwVersion: normalizedParts[25] || '',
     };
 
     setMachineStatus(status);
@@ -678,8 +676,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       extractionRunningRef.current = false;
       const preFlag = preSoakEnabled === 'on' ? 1 : 0;
       const prePart = `PRE_INFUSION=${preFlag},${preSoakVolume},${preSoakTime}`;
-      const freePart = `FREE_PRESSURE=${targetWeight},9,93`;
-      const cmd = `123@FREE_PRESSURE@${prePart}|${freePart}#123`;
+      const freePart = `FIXED_PRESSURE=${targetWeight},9,93`;
+      const cmd = `123@COFFEE@${prePart}|${freePart}#123`;
       console.log(`[CMD] Start Extraction (Target: ${targetWeight}g) -> ${cmd}`);
       await sendInterferingCommand(cmd);
     } else {
@@ -696,7 +694,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
   };
 
   const handleHotWater = async () => {
-    const cmd = `102@HOT_WATER@HOT_WATER=${targetWeight},${targetWaterTemp}#102`;
+    const cmd = `102@WATER@WATER_SETTING=${targetWeight},${targetWaterTemp}#102`;
     console.log(`[CMD] Hot Water (Target: ${targetWeight}ml,${targetWaterTemp}°C)`);
     await sendInterferingCommand(cmd);
   };
@@ -737,7 +735,6 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       'steam_milk_temperature',
       'steam_pressure_level',
       'hot_water_run_status',
-      'hot_water_percent_level',
       'hot_water_temperature',
       'tray_postion_state',
       'brew_handle_postion_state',
