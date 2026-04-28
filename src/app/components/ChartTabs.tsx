@@ -1,5 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+export interface ExtractionCommands {
+  startExtraction: () => Promise<void>;
+  stopExtraction: () => Promise<void>;
+}
 
 interface ChartTabsProps {
   extractionBoilerTempData: Array<{ time: string; value: number }>;
@@ -9,6 +14,7 @@ interface ChartTabsProps {
   extractionBoilerPressureData: Array<{ time: string; value: number }>;
   steamBoilerPressureData: Array<{ time: string; value: number }>;
   flowRateData: Array<{ time: string; value: number }>;
+  extractionCommandRef: React.MutableRefObject<ExtractionCommands | null>;
 }
 
 export function ChartTabs({ 
@@ -18,15 +24,60 @@ export function ChartTabs({
   hotWaterTempData,
   extractionBoilerPressureData,
   steamBoilerPressureData,
-  flowRateData 
+  flowRateData,
+  extractionCommandRef
 }: ChartTabsProps) {
   const [activeTab, setActiveTab] = useState('temperature');
+  const [lifetimeTestRunning, setLifetimeTestRunning] = useState(false);
+  const [lifetimeTestCount, setLifetimeTestCount] = useState(0);
+  const lifetimeRunningRef = useRef(false);
+  const lifetimeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const tabs = [
     { id: 'temperature', label: '温度曲线', color: 'red' },
     { id: 'pressure', label: '压力曲线', color: 'blue' },
     { id: 'flowRate', label: '流速曲线', color: 'green' },
+    { id: 'lifetimeTest', label: '寿命测试', color: 'purple' },
   ];
+
+  const runLifetimeCycle = () => {
+    if (!lifetimeRunningRef.current) return;
+    setLifetimeTestCount(prev => prev + 1);
+    extractionCommandRef.current?.startExtraction();
+    lifetimeTimeoutRef.current = setTimeout(() => {
+      if (!lifetimeRunningRef.current) return;
+      extractionCommandRef.current?.stopExtraction();
+      lifetimeTimeoutRef.current = setTimeout(() => {
+        if (!lifetimeRunningRef.current) return;
+        runLifetimeCycle();
+      }, 10000);
+    }, 10000);
+  };
+
+  const handleToggleLifetimeTest = () => {
+    if (lifetimeTestRunning) {
+      lifetimeRunningRef.current = false;
+      setLifetimeTestRunning(false);
+      if (lifetimeTimeoutRef.current) {
+        clearTimeout(lifetimeTimeoutRef.current);
+        lifetimeTimeoutRef.current = null;
+      }
+      extractionCommandRef.current?.stopExtraction();
+    } else {
+      lifetimeRunningRef.current = true;
+      setLifetimeTestRunning(true);
+      runLifetimeCycle();
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      lifetimeRunningRef.current = false;
+      if (lifetimeTimeoutRef.current) {
+        clearTimeout(lifetimeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // 合并数据
   const getChartData = () => {
@@ -68,7 +119,9 @@ export function ChartTabs({
                   ? 'text-red-600 bg-red-50'
                   : tab.color === 'blue'
                   ? 'text-blue-600 bg-blue-50'
-                  : 'text-green-600 bg-green-50'
+                  : tab.color === 'green'
+                  ? 'text-green-600 bg-green-50'
+                  : 'text-purple-600 bg-purple-50'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
@@ -79,7 +132,9 @@ export function ChartTabs({
                   ? 'bg-red-600'
                   : tab.color === 'blue'
                   ? 'bg-blue-600'
-                  : 'bg-green-600'
+                  : tab.color === 'green'
+                  ? 'bg-green-600'
+                  : 'bg-purple-600'
               }`} />
             )}
           </button>
@@ -88,6 +143,28 @@ export function ChartTabs({
 
       {/* 图表显示区域 */}
       <div className="flex-1 p-6">
+        {activeTab === 'lifetimeTest' ? (
+          <div className="flex flex-col items-center justify-center h-full gap-8">
+            <div className="flex items-center gap-6">
+              <button
+                onClick={handleToggleLifetimeTest}
+                className={`px-8 py-3 rounded-lg font-medium text-white text-lg transition-colors ${
+                  lifetimeTestRunning
+                    ? 'bg-red-500 hover:bg-red-600'
+                    : 'bg-purple-500 hover:bg-purple-600'
+                }`}
+              >
+                {lifetimeTestRunning ? '停止测试' : '开始测试'}
+              </button>
+              <div className="text-2xl font-semibold text-gray-700">
+                已完成: <span className="text-purple-600">{lifetimeTestCount}</span> 次
+              </div>
+            </div>
+            <div className="text-sm text-gray-400">
+              {lifetimeTestRunning ? '测试进行中 — 萃取10s → 停止10s → 循环' : '点击开始按钮启动寿命测试'}
+            </div>
+          </div>
+        ) : (
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -190,6 +267,7 @@ export function ChartTabs({
             )}
           </LineChart>
         </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

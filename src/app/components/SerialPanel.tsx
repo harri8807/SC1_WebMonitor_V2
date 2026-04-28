@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings, Send, Trash2, Search, RefreshCw, Activity, Thermometer, Droplets, Gauge, PlayCircle, AlertCircle, StopCircle, Play, FileText, Save } from 'lucide-react';
+import { ExtractionCommands } from './ChartTabs';
 
 // Web Serial API Type Definitions
 interface SerialPort {
@@ -68,9 +69,10 @@ interface SerialPanelProps {
   onDataReceived?: (data: string) => void;
   onStatusUpdate?: (status: MachineStatus) => void;
   onPortSelected?: (name: string) => void;
+  extractionCommandRef?: React.MutableRefObject<ExtractionCommands | null>;
 }
 
-export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: SerialPanelProps) {
+export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, extractionCommandRef }: SerialPanelProps) {
   const [ports, setPorts] = useState<SerialPort[]>([]);
   const [selectedPort, setSelectedPort] = useState<SerialPort | null>(null);
 
@@ -686,6 +688,15 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected }: 
       await sendInterferingCommand(cmd);
     }
   };
+
+  useEffect(() => {
+    if (extractionCommandRef) {
+      extractionCommandRef.current = {
+        startExtraction: () => handleExtraction(true),
+        stopExtraction: () => handleExtraction(false),
+      };
+    }
+  });
 
   const handlePowerOnTest = async () => {
     const cmd = "123@POWER_ON@NULL#123";

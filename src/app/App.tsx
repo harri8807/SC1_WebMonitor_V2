@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { StatusBar } from './components/StatusBar';
 import { SerialPanel, MachineStatus } from './components/SerialPanel';
-import { ChartTabs } from './components/ChartTabs';
+import { ChartTabs, ExtractionCommands } from './components/ChartTabs';
 
 export default function App() {
   const [extractionBoilerTemp, setExtractionBoilerTemp] = useState(0);
@@ -33,6 +33,8 @@ export default function App() {
   const [extractionBoilerPressureData, setExtractionBoilerPressureData] = useState(initData);
   const [steamBoilerPressureData, setSteamBoilerPressureData] = useState(initData);
   const [flowRateData, setFlowRateData] = useState(initData);
+
+  const extractionCommandRef = useRef<ExtractionCommands | null>(null);
 
   const handleDataReceived = (data: string) => {
     // console.log('Received data from serial:', data);
@@ -94,6 +96,7 @@ export default function App() {
             extractionBoilerPressureData={extractionBoilerPressureData}
             steamBoilerPressureData={steamBoilerPressureData}
             flowRateData={flowRateData}
+            extractionCommandRef={extractionCommandRef}
           />
         </div>
 
@@ -102,6 +105,7 @@ export default function App() {
           <SerialPanel
             onDataReceived={handleDataReceived}
             onStatusUpdate={handleStatusUpdate}
+            extractionCommandRef={extractionCommandRef}
           />
         </div>
       </div>
