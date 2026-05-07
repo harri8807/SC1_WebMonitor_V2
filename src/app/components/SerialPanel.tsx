@@ -109,6 +109,12 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
   const [preSoakVolume, setPreSoakVolume] = useState<number>(20); // ml, default 20
   const [preSoakTime, setPreSoakTime] = useState<number>(3); // seconds, default 3
 
+  // Boot parameters
+  const [waterInletMode, setWaterInletMode] = useState<0 | 1>(0); // 0=水箱模式, 1=外接水模式
+  const [flushSwitch, setFlushSwitch] = useState<0 | 1>(0); // 0=关, 1=开
+  const [weightK, setWeightK] = useState<number>(1);
+  const [weightB, setWeightB] = useState<number>(0);
+
   // Voice Alarm State for Steam Boiler Pressure
   const [isAlarmActive, setIsAlarmActive] = useState(false);
   const [isManualAlarmTest, setIsManualAlarmTest] = useState(false);
@@ -452,6 +458,36 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
     return startIndex + startMarker.length + endIndex + 1;
   };
 
+  const parseFactoryRead = (payload: string) => {
+    // Format: 123@FACTORY_READ@FACTORY=001,SC1,1,k,b,0.532,冲洗开关,0,进水模式,0,0,0#123
+    const startMarker = "123@FACTORY_READ@FACTORY=";
+    const startIndex = payload.lastIndexOf(startMarker);
+    if (startIndex === -1) return;
+
+    const remaining = payload.substring(startIndex + startMarker.length);
+    const endIndex = remaining.indexOf('#');
+    if (endIndex === -1) return;
+
+    const csvData = remaining.substring(0, endIndex);
+    const parts = csvData.split(',').map(s => s.trim());
+
+    if (parts.length < 9) return;
+
+    const k = parseFloat(parts[3]);
+    const b = parseFloat(parts[4]);
+    const flush = parseInt(parts[6]);
+    const inlet = parseInt(parts[8]);
+
+    if (!isNaN(k)) setWeightK(k);
+    if (!isNaN(b)) setWeightB(b);
+    if (flush === 0 || flush === 1) setFlushSwitch(flush as 0 | 1);
+    if (inlet === 0 || inlet === 1) setWaterInletMode(inlet as 0 | 1);
+
+    console.log(`[FACTORY_READ] Parsed: k=${k}, b=${b}, flush=${flush}, inlet=${inlet}`);
+
+    return startIndex + startMarker.length + endIndex + 1;
+  };
+
   const readLoop = async () => {
     if (!portRef.current?.readable) return;
 
@@ -503,6 +539,11 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
             const packetEnd = parseMachineStatus(bufferRef.current);
             if (packetEnd) {
               bufferRef.current = bufferRef.current.slice(packetEnd);
+              continue;
+            }
+            const factoryEnd = parseFactoryRead(bufferRef.current);
+            if (factoryEnd) {
+              bufferRef.current = bufferRef.current.slice(factoryEnd);
               continue;
             }
             break;
@@ -595,6 +636,12 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
         setIsReading(true);
         // Store the read loop promise to await on disconnect
         closedPromiseRef.current = readLoop();
+
+        // Request boot parameters once after connection
+        setTimeout(() => {
+          sendString("123@FACTORY_READ@NULL#123");
+          console.log(`[CMD] Request boot parameters`);
+        }, 300);
 
       } catch (err) {
         console.error('Failed to connect:', err);
@@ -697,6 +744,12 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
       };
     }
   });
+
+  const handleBootParamSet = async () => {
+    const cmd = `123@FACTORY_WRITE@FACTORY=001,SC1,1,${weightK},${weightB},0.532,${flushSwitch},0,${waterInletMode},0,0,0#123`;
+    console.log(`[CMD] Boot Parameter Set`);
+    await sendInterferingCommand(cmd);
+  };
 
   const handlePowerOnTest = async () => {
     const cmd = "123@POWER_ON@NULL#123";
@@ -920,6 +973,94 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
             <PlayCircle className="w-4 h-4" />
             控制
           </h3>
+
+            {/* 开机参数 */}
+            <div className="mb-3 bg-white p-3 rounded-lg border border-purple-200">
+              <label className="block text-sm font-medium text-gray-700 mb-2">开机参数</label>
+
+              <div className="mb-2">
+                <label className="block text-xs text-gray-500 mb-1">进水模式</label>
+                <div className="flex items-center gap-4">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="waterInletMode"
+                      checked={waterInletMode === 0}
+                      onChange={() => setWaterInletMode(0)}
+                      className="rounded text-blue-600"
+                    />
+                    水箱模式
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="waterInletMode"
+                      checked={waterInletMode === 1}
+                      onChange={() => setWaterInletMode(1)}
+                      className="rounded text-blue-600"
+                    />
+                    外接水模式
+                  </label>
+                </div>
+              </div>
+
+              <div className="mb-2">
+                <label className="block text-xs text-gray-500 mb-1">冲洗开关</label>
+                <div className="flex items-center gap-4">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="flushSwitch"
+                      checked={flushSwitch === 0}
+                      onChange={() => setFlushSwitch(0)}
+                      className="rounded text-blue-600"
+                    />
+                    关
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="flushSwitch"
+                      checked={flushSwitch === 1}
+                      onChange={() => setFlushSwitch(1)}
+                      className="rounded text-blue-600"
+                    />
+                    开
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">称重系数 k</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={weightK}
+                    onChange={(e) => setWeightK(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-center font-mono font-semibold text-purple-700"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500">称重系数 b</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    value={weightB}
+                    onChange={(e) => setWeightB(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-center font-mono font-semibold text-purple-700"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleBootParamSet}
+                className="w-full flex items-center justify-center gap-1 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors shadow-sm font-medium text-sm"
+              >
+                <Settings className="w-4 h-4" />
+                设置
+              </button>
+            </div>
 
             {/* 预浸泡控制 */}
             <div className="mb-3 bg-white p-3 rounded-lg border border-purple-200">

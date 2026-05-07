@@ -50,7 +50,7 @@ export function ChartTabs({
       lifetimeTimeoutRef.current = setTimeout(() => {
         if (!lifetimeRunningRef.current) return;
         runLifetimeCycle();
-      }, 10000);
+      }, 12000);
     }, 10000);
   };
 
@@ -161,7 +161,7 @@ export function ChartTabs({
               </div>
             </div>
             <div className="text-sm text-gray-400">
-              {lifetimeTestRunning ? '测试进行中 — 萃取10s → 停止10s → 循环' : '点击开始按钮启动寿命测试'}
+              {lifetimeTestRunning ? '测试进行中 — 萃取10s → 停止12s → 循环' : '点击开始按钮启动寿命测试'}
             </div>
           </div>
         ) : (
