@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings, Send, Trash2, Search, RefreshCw, Activity, Thermometer, Droplets, Gauge, PlayCircle, AlertCircle, StopCircle, Play, FileText, Save } from 'lucide-react';
 import { ExtractionCommands } from './ChartTabs';
 
@@ -55,8 +55,8 @@ export interface MachineStatus {
   brew_handle_postion_state: number;
   hot_switch_postion_state: number;
   tray_high_level_state: number;
-  tray_low_level_state_1: number;
-  tray_low_level_state_2: number;
+  tank_low_level_state_1: number;
+  tank_low_level_state_2: number;
   current_stage: number;
   total_stage: number;
   drink_making_flg: number;
@@ -435,8 +435,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
       brew_handle_postion_state: parseInt(normalizedParts[15]) || 0,
       hot_switch_postion_state: parseInt(normalizedParts[16]) || 0,
       tray_high_level_state: parseInt(normalizedParts[17]) || 0,
-      tray_low_level_state_1: parseInt(normalizedParts[18]) || 0,
-      tray_low_level_state_2: parseInt(normalizedParts[19]) || 0,
+      tank_low_level_state_1: parseInt(normalizedParts[18]) || 0,
+      tank_low_level_state_2: parseInt(normalizedParts[19]) || 0,
       current_stage: parseInt(normalizedParts[20]) || 0,
       total_stage: parseInt(normalizedParts[21]) || 0,
       drink_making_flg: parseInt(normalizedParts[22]) || 0,
@@ -804,8 +804,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
       'brew_handle_postion_state',
       'hot_switch_postion_state',
       'tray_high_level_state',
-      'tray_low_level_state_1',
-      'tray_low_level_state_2',
+      'tank_low_level_state_1',
+      'tank_low_level_state_2',
       'current_stage',
       'total_stage',
       'drink_making_flg',
@@ -1334,7 +1334,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
             </div>
 
             {/* Status Flags */}
-            <div className="col-span-2 grid grid-cols-2 gap-2 text-xs">
+            <div className="col-span-2 grid grid-cols-3 gap-2 text-xs">
               <div className={`p-1 rounded text-center border ${machineStatus.tray_postion_state ? 'bg-green-100 border-green-200 text-green-700' : 'bg-red-50 border-red-100 text-red-600'}`}>
                 蓄水盘: {machineStatus.tray_postion_state ? 'In Place' : 'Missing'}
               </div>
@@ -1342,7 +1342,10 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
                 手柄: {machineStatus.brew_handle_postion_state ? 'In Place' : 'Missing'}
               </div>
               <div className={`p-1 rounded text-center border ${machineStatus.tray_high_level_state ? 'bg-blue-100 border-blue-200 text-blue-700' : 'bg-gray-100 border-gray-200 text-gray-600'}`}>
-                高水位: {machineStatus.tray_high_level_state ? 'Yes' : 'No'}
+                蓄水盘水位: {machineStatus.tray_high_level_state ? '高' : '正常'}
+              </div>
+              <div className={`p-1 rounded text-center border ${machineStatus.tank_low_level_state_1 === 1 ? 'bg-green-100 border-green-200 text-green-700' : 'bg-orange-100 border-orange-200 text-orange-700'}`}>
+                水箱水位: {machineStatus.tank_low_level_state_1 === 1 ? '正常' : '低'}
               </div>
               <div className={`p-1 rounded text-center border ${machineStatus.error_code !== 0 ? 'bg-red-100 border-red-200 text-red-700 font-bold' : 'bg-gray-50 border-gray-200 text-gray-500'}`}>
                 错误代码: {machineStatus.error_code}
