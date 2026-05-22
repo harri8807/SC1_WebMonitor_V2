@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Settings, Send, Trash2, Search, RefreshCw, Activity, Thermometer, Droplets, Gauge, PlayCircle, AlertCircle, StopCircle, Play, FileText, Save } from 'lucide-react';
 import { ExtractionCommands } from './ChartTabs';
 
@@ -43,7 +43,8 @@ export interface MachineStatus {
   brew_boiler_temperature: number;
   brew_head_temperature: number;
   brew_pressure_level: number;
-  steam_boiler_water_level: number;
+  steam_boiler_water_high_level: number;
+  steam_boiler_water_low_level: number;
   steam_run_status: number;
   steam_boiler_pressure: number;
   steam_boiler_temperature: number;
@@ -404,14 +405,14 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
     const csvData = remaining.substring(0, endIndex);
     const parts = csvData.split(',').map(s => s.trim());
 
-    if (parts.length < 26) return;
+    if (parts.length < 27) return;
 
     // If firmware version comes in as a dotted segment split across fields (e.g. 0.0.2),
     // rejoin the tail so we can parse the fixed fields correctly.
     let normalizedParts = parts;
-    if (parts.length > 26) {
-      const head = parts.slice(0, 25);
-      const version = parts.slice(25).join('.');
+    if (parts.length > 27) {
+      const head = parts.slice(0, 26);
+      const version = parts.slice(26).join('.');
       normalizedParts = [...head, version];
     }
 
@@ -423,26 +424,27 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
       brew_boiler_temperature: parseFloat(normalizedParts[3]) || 0,
       brew_head_temperature: parseFloat(normalizedParts[4]) || 0,
       brew_pressure_level: parseInt(normalizedParts[5]) || 0,
-      steam_boiler_water_level: parseInt(normalizedParts[6]) || 0,
-      steam_run_status: parseInt(normalizedParts[7]) || 0,
-      steam_boiler_pressure: parseFloat(normalizedParts[8]) || 0,
-      steam_boiler_temperature: parseFloat(normalizedParts[9]) || 0,
-      steam_milk_temperature: parseFloat(normalizedParts[10]) || 0,
-      steam_pressure_level: parseInt(normalizedParts[11]) || 0,
-      hot_water_run_status: parseInt(normalizedParts[12]) || 0,
-      hot_water_temperature: parseFloat(normalizedParts[13]) || 0,
-      tray_postion_state: parseInt(normalizedParts[14]) || 0,
-      brew_handle_postion_state: parseInt(normalizedParts[15]) || 0,
-      hot_switch_postion_state: parseInt(normalizedParts[16]) || 0,
-      tray_high_level_state: parseInt(normalizedParts[17]) || 0,
-      tank_low_level_state_1: parseInt(normalizedParts[18]) || 0,
-      tank_low_level_state_2: parseInt(normalizedParts[19]) || 0,
-      current_stage: parseInt(normalizedParts[20]) || 0,
-      total_stage: parseInt(normalizedParts[21]) || 0,
-      drink_making_flg: parseInt(normalizedParts[22]) || 0,
-      liquid_adc: parseInt(normalizedParts[23]) || 0,
-      liquid_weight: parseFloat(normalizedParts[24]) || 0,
-      ucFwVersion: normalizedParts[25] || '',
+      steam_boiler_water_high_level: parseInt(normalizedParts[6]) || 0,
+      steam_boiler_water_low_level: parseInt(normalizedParts[7]) || 0,
+      steam_run_status: parseInt(normalizedParts[8]) || 0,
+      steam_boiler_pressure: parseFloat(normalizedParts[9]) || 0,
+      steam_boiler_temperature: parseFloat(normalizedParts[10]) || 0,
+      steam_milk_temperature: parseFloat(normalizedParts[11]) || 0,
+      steam_pressure_level: parseInt(normalizedParts[12]) || 0,
+      hot_water_run_status: parseInt(normalizedParts[13]) || 0,
+      hot_water_temperature: parseFloat(normalizedParts[14]) || 0,
+      tray_postion_state: parseInt(normalizedParts[15]) || 0,
+      brew_handle_postion_state: parseInt(normalizedParts[16]) || 0,
+      hot_switch_postion_state: parseInt(normalizedParts[17]) || 0,
+      tray_high_level_state: parseInt(normalizedParts[18]) || 0,
+      tank_low_level_state_1: parseInt(normalizedParts[19]) || 0,
+      tank_low_level_state_2: parseInt(normalizedParts[20]) || 0,
+      current_stage: parseInt(normalizedParts[21]) || 0,
+      total_stage: parseInt(normalizedParts[22]) || 0,
+      drink_making_flg: parseInt(normalizedParts[23]) || 0,
+      liquid_adc: parseInt(normalizedParts[24]) || 0,
+      liquid_weight: parseFloat(normalizedParts[25]) || 0,
+      ucFwVersion: normalizedParts[26] || '',
     };
 
     setMachineStatus(status);
@@ -792,7 +794,8 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
       'brew_boiler_temperature',
       'brew_head_temperature',
       'brew_pressure_level',
-      'steam_boiler_water_level',
+      'steam_boiler_water_high_level',
+      'steam_boiler_water_low_level',
       'steam_run_status',
       'steam_boiler_pressure',
       'steam_boiler_temperature',
@@ -1323,8 +1326,12 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
                     }`}>{machineStatus.steam_boiler_pressure.toFixed(1)} bar</span>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-gray-500">Water Level</span>
-                  <span className="font-medium">{machineStatus.steam_boiler_water_level}</span>
+                  <span className="text-xs text-gray-500">Water High Lvl</span>
+                  <span className="font-medium">{machineStatus.steam_boiler_water_high_level}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-500">Water Low Lvl</span>
+                  <span className="font-medium">{machineStatus.steam_boiler_water_low_level}</span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-xs text-gray-500">Milk Temp</span>
