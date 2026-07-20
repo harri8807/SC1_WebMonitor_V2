@@ -760,7 +760,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
   };
 
   const handleHotWater = async () => {
-    const cmd = `102@WATER@WATER_SETTING=${targetWeight},${targetWaterTemp}#102`;
+    const cmd = `102@WATER@WATER_SETTING=0,0,${targetWeight},${targetWaterTemp}#102`;
     console.log(`[CMD] Hot Water (Target: ${targetWeight}ml,${targetWaterTemp}°C)`);
     await sendInterferingCommand(cmd);
   };
