@@ -727,7 +727,7 @@ export function SerialPanel({ onDataReceived, onStatusUpdate, onPortSelected, ex
       extractionRunningRef.current = false;
       const preFlag = preSoakEnabled === 'on' ? 1 : 0;
       const prePart = `PRE_INFUSION=${preFlag},${preSoakVolume},${preSoakTime}`;
-      const freePart = `FIXED_PRESSURE=${targetWeight},9,93`;
+      const freePart = `FIXED_PRESSURE=0,${targetWeight},9,93`;
       const cmd = `123@COFFEE@${prePart}|${freePart}#123`;
       console.log(`[CMD] Start Extraction (Target: ${targetWeight}g) -> ${cmd}`);
       await sendInterferingCommand(cmd);
